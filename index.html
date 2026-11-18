@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Request Sender</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; background: #f4f4f9; }
+        .container { max-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input, button { width: 100%; padding: 10px; margin-top: 10px; box-sizing: border-box; }
+        button { background: #007BFF; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        #result { margin-top: 15px; white-space: pre-wrap; background: #eee; padding: 10px; border-radius: 4px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Request Sender</h2>
+    <label for="number">Mobile Number (11 digits, starts with 01):</label>
+    <input type="text" id="number" placeholder="01XXXXXXXXX">
+
+    <label for="amount">Amount (1 - 20):</label>
+    <input type="number" id="amount" min="1" max="20" value="1">
+
+    <button onclick="sendRequests()">Submit</button>
+
+    <div id="result"></div>
+</div>
+
+<script>
+async function sendRequests() {
+    const number = document.getElementById('number').value.trim();
+    const amount = parseInt(document.getElementById('amount').value);
+    const resultDiv = document.getElementById('result');
+
+    resultDiv.innerText = "Processing...";
+
+    // PHP er validation er motoi JS validation
+    const phoneRegex = /^01[0-9]{9}$/;
+    if (!phoneRegex.test(number)) {
+        resultDiv.innerText = JSON.stringify({ success: false, message: 'Invalid number. Must be 11 digits and start with 01.' }, null, 2);
+        return;
+    }
+
+    if (!amount || amount < 1 || amount > 20) {
+        resultDiv.innerText = JSON.stringify({ success: false, message: 'Amount must be between 1 and 20.' }, null, 2);
+        return;
+    }
+
+    let results = {
+        sent: 0,
+        failed: 0,
+        remaining: amount,
+        details: []
+    };
+
+    const url = 'https://b08.abcd43.com/api/auth/registerNumber';
+
+    for (let i = 0; i < amount; i++) {
+        try {
+            const data = {
+                countryCode: '+880',
+                mobileNumber: number.substring(1),
+                promoCode: '',
+                atag: '',
+                clickId: '',
+                userAgent: navigator.userAgent || 'API Request',
+                fbp: '',
+                fbc: '',
+                channel: 'WHATSAPP'
+            };
+
+            // CORS issue er karonhe browser theke direct external API call block hote pare 
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                results.sent++;
+                results.details.push({ attempt: i + 1, status: 'success' });
+            } else {
+                results.failed++;
+                results.details.push({ attempt: i + 1, status: 'failed' });
+            }
+        } catch (error) {
+            results.failed++;
+            results.details.push({ attempt: i + 1, status: 'error', message: error.message });
+        }
+        results.remaining--;
+    }
+
+    resultDiv.innerText = JSON.stringify({
+        success: true,
+        message: 'Processing completed',
+        results: results
+    }, null, 2);
+}
+</script>
+
+</body>
+</html>
